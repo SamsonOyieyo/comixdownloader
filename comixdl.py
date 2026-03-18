@@ -25,7 +25,6 @@ def make_request(url, method="GET", data=None):
 def get_clean_title(url):
     try:
         parts = url.strip("/").split("/")
-        # Tries to get 'Manga Name - Chapter X'
         series = parts[-2].replace('-', ' ').title()
         chapter = parts[-1].replace('-', ' ').title()
         return f"{series} - {chapter}"
@@ -37,11 +36,9 @@ def download_chapter(target_url):
     print(f"\n[*] Processing: {nice_title}")
     
     try:
-        # 1. Start API Extraction
         start_res = make_request(f"{API_BASE}/extractions", method="POST", data={"url": target_url})
         extraction_id = start_res['data']['id']
 
-        # 2. Polling
         status = "pending"
         images = []
         while status not in ["done", "error"]:
@@ -55,10 +52,8 @@ def download_chapter(target_url):
             print(f"    [!] No images found for {nice_title}")
             return
 
-        # 3. Setup File
         cbz_filename = f"{nice_title}.cbz".replace(" ", "_").replace("/", "-")
         
-        # 4. Download and Zip
         with zipfile.ZipFile(cbz_filename, 'w') as zip_file:
             for i, img_data in enumerate(images):
                 img_url = img_data['url']
@@ -73,32 +68,43 @@ def download_chapter(target_url):
                     continue
 
         print(f"\n[+] Saved: {cbz_filename}")
-        # Wait between chapters to avoid API bans
-        print("[*] Cooling down for 5 seconds...")
-        time.sleep(5)
+        time.sleep(2)
 
     except Exception as e:
         print(f"\n[!] Failed {nice_title}: {e}")
 
-def main():
+def run_script():
     if API_KEY == "YOUR_API_KEY_HERE":
-        print("[!] ERROR: Update your API_KEY in the script.")
+        print("====================================================")
+        print("[!] ERROR: API KEY MISSING")
+        print("    Please open this file in Notepad and paste your")
+        print("    extract.pics API key into the API_KEY variable.")
+        print("====================================================")
         return
 
     print("Paste all links (separated by spaces) then press Enter:")
     user_input = input("> ").strip()
     
-    # Split the input into a list of URLs
     urls = user_input.split()
-    
+    if not urls:
+        print("[!] No links provided.")
+        return
+        
     print(f"\n[!] Batch mode started. {len(urls)} chapters in queue.")
     
     for url in urls:
         if "comix.to" in url:
             download_chapter(url)
-
+    
     print("\n[=== ALL DOWNLOADS COMPLETE ===]")
-    input("Press Enter to exit...")
 
 if __name__ == "__main__":
-    main()
+    try:
+        run_script()
+    except Exception as fatal_error:
+        print("\n\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print(f"CRITICAL ERROR: {fatal_error}")
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    
+    # This ensures the window stays open NO MATTER WHAT
+    input("\nPress Enter to close this window...")
