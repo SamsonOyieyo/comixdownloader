@@ -2,6 +2,7 @@ import sys
 import json
 import time
 import urllib.request
+import urllib.error
 import zipfile
 import os
 
@@ -31,26 +32,8 @@ def get_clean_title(url):
     except:
         return "Comic_Chapter"
 
-def main():
-    print("=======================================")
-    print("       Comix.to CBZ Downloader         ")
-    print("=======================================\n")
-
-    if API_KEY == "YOUR_API_KEY_HERE":
-        print("[!] ERROR: Please paste your extract.pics API key into the script.")
-        input("Press Enter to exit...")
-        return
-
-    # Get URL from command line or ask the user
-    if len(sys.argv) > 1:
-        target_url = sys.argv[1]
-    else:
-        target_url = input("Paste the comix.to chapter URL: ").strip()
-
-    if not target_url.startswith("http"):
-        print("[!] Invalid URL.")
-        return
-
+def download_chapter(target_url):
+    """Handles the extraction and downloading for a single URL."""
     nice_title = get_clean_title(target_url)
     print(f"\n[*] Target: {nice_title}")
     
@@ -76,7 +59,7 @@ def main():
         total_images = len(images)
         print(f"[*] Success! Found {total_images} pages.")
 
-        # 3. Setup File Path (Saves in the folder where you run the script)
+        # 3. Setup File Path
         current_dir = os.getcwd()
         cbz_filename = f"{nice_title}.cbz".replace(" ", "_")
         cbz_path = os.path.join(current_dir, cbz_filename)
@@ -88,7 +71,6 @@ def main():
             for i, img_data in enumerate(images):
                 img_url = img_data['url']
                 
-                # Print progress (e.g., [ 5/32] Downloading...)
                 print(f"    -> [{i+1:02d}/{total_images:02d}] Downloading page...", end="\r")
                 
                 try:
@@ -97,7 +79,6 @@ def main():
                     img_req.add_header("Referer", "https://comix.to/") 
                     
                     with urllib.request.urlopen(img_req) as img_res:
-                        # Determine extension, default to jpg
                         ext = "jpg"
                         if "." in img_url.split('/')[-1]:
                             ext = img_url.split('/')[-1].split('.')[-1].split('?')[0]
@@ -106,13 +87,57 @@ def main():
                 except Exception as e:
                     print(f"\n    [!] Failed to download page {i+1}: {e}")
 
-        print(f"\n\n[+] DONE! Saved to: {cbz_path}")
+        print(f"\n[+] DONE! Saved to: {cbz_path}")
 
     except Exception as e:
-        print(f"\n[!] ERROR: {str(e)}")
+        print(f"\n[!] ERROR processing {target_url}: {str(e)}")
+
+def main():
+    print("=======================================")
+    print("       Comix.to CBZ Downloader         ")
+    print("=======================================\n")
+
+    if API_KEY == "YOUR_API_KEY_HERE":
+        print("[!] ERROR: Please paste your extract.pics API key into the script.")
+        input("Press Enter to exit...")
+        return
+
+    # Get URLs from command line or ask the user
+    urls = []
+    if len(sys.argv) > 1:
+        urls = sys.argv[1:]
+    else:
+        print("Paste up to 3 comix.to chapter URLs.")
+        print("Separate them with spaces or commas:")
+        raw_input = input("> ").strip()
+        # Replace commas with spaces, then split into a list
+        urls = [u.strip() for u in raw_input.replace(',', ' ').split() if u.strip()]
+
+    # Filter out invalid URLs
+    urls = [u for u in urls if u.startswith("http")]
+
+    if not urls:
+        print("[!] No valid URLs provided.")
+        return
+
+    # Enforce the 3-link limit for safety
+    if len(urls) > 3:
+        print("\n[!] More than 3 URLs detected. Limiting to the first 3 to respect API limits.")
+        urls = urls[:3]
+
+    # Process sequentially
+    for index, url in enumerate(urls):
+        print(f"\n--- Processing Link {index + 1} of {len(urls)} ---")
+        download_chapter(url)
+        
+        # Add a polite cooldown between chapters (except after the last one)
+        if index < len(urls) - 1:
+            cooldown = 10
+            print(f"\n[*] Cooldown: Waiting {cooldown} seconds before starting the next chapter to avoid rate limits...")
+            time.sleep(cooldown)
 
     if len(sys.argv) == 1:
-        input("\nPress Enter to exit...")
+        input("\nAll tasks complete. Press Enter to exit...")
 
 if __name__ == "__main__":
     main()
