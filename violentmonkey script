@@ -1,0 +1,66 @@
+// ==UserScript==
+// @name        Comix.to Batch Linker
+// @namespace   comix_downloader
+// @match       https://comix.to/title/*
+// @grant       GM_setClipboard
+// @version     4.0
+// @run-at      document-idle
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    const box = document.createElement('div');
+    box.style = "position: fixed; top: 10px; right: 10px; z-index: 99999; background: #111; color: #fff; padding: 15px; border: 2px solid #a855f7; border-radius: 8px; font-family: sans-serif; width: 220px; box-shadow: 0 4px 20px rgba(0,0,0,0.8);";
+    box.innerHTML = `
+        <div style="color: #a855f7; font-weight: bold; margin-bottom: 8px; text-align: center;">BATCH DOWNLOADER</div>
+        <div style="font-size: 11px; margin-bottom: 10px; color: #ccc; text-align: center;">Scroll down to load links!</div>
+        <div style="background: #222; padding: 5px; border-radius: 4px; text-align: center; margin-bottom: 10px;">
+            Visible Links: <span id="l-count" style="color: #a855f7; font-weight: bold;">0</span>
+        </div>
+        <button id="b-grab" style="width: 100%; padding: 8px; background: #a855f7; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">1. Grab & Filter</button>
+        <button id="b-copy" style="width: 100%; padding: 8px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px; display: none;">2. Copy Links</button>
+    `;
+    document.body.appendChild(box);
+
+    // Update the counter as the user scrolls
+    setInterval(() => {
+        const count = document.querySelectorAll('a[href*="/chapter-"]').length;
+        document.getElementById('l-count').innerText = count;
+    }, 1000);
+
+    let finalUrls = "";
+
+    document.getElementById('b-grab').addEventListener('click', () => {
+        const chapters = new Map();
+        const links = document.querySelectorAll('a[href*="/chapter-"]');
+        
+        links.forEach(a => {
+            const url = a.href;
+            const container = a.closest('div, tr, li') || a;
+            const text = container.innerText.toLowerCase();
+            
+            // Extract numerical chapter for sorting/deduplication
+            const match = url.match(/chapter-([\d.]+)/);
+            const num = match ? parseFloat(match[1]) : url;
+            
+            const isOfficial = text.includes('official');
+            const score = isOfficial ? 1000 : 0;
+
+            if (!chapters.has(num) || score > chapters.get(num).score) {
+                chapters.set(num, { url, score });
+            }
+        });
+
+        const sorted = Array.from(chapters.keys()).sort((a, b) => a - b);
+        finalUrls = sorted.map(n => chapters.get(n).url).join(' ');
+        
+        document.getElementById('b-copy').style.display = "block";
+        document.getElementById('b-copy').innerText = `Copy ${chapters.size} Links`;
+    });
+
+    document.getElementById('b-copy').addEventListener('click', () => {
+        GM_setClipboard(finalUrls);
+        alert("Copied! Now paste into the Python script.");
+    });
+})();
